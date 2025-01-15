@@ -21,8 +21,8 @@ Fast Image Searcher offers an advanced solution for efficiently organizing, quer
 The tool requires Python to run. Clone the repository and install the dependencies:
 
 ```bash
-git clone https://github.com/yourusername/fast-image-searcher.git
-cd fast-image-searcher
+git clone https://github.com/reab5555/AI-Fast-Image-Search.git
+cd AI-Fast-Image-Search
 pip install -r requirements.txt
 ```
 
