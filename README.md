@@ -16,7 +16,7 @@ Fast Image Searcher offers an advanced solution for efficiently organizing, quer
 
 - **Threshold-Based Filtering**: Customize the sensitivity of your search results with a similarity threshold.
 
-- **Results Customization**: Limit the maximum number of results displayed, and view images in an easy-to-navigate grid format.
+- **Results Customization**: Configure the maximum number of displayed results and view images in a user-friendly grid format, all within an intuitive Streamlit interface.
 
 <img src="appendix/gui.png" width="800" alt="alt text">
 
