@@ -18,7 +18,7 @@ Fast Image Searcher offers an advanced solution for efficiently organizing, quer
 
 - **Results Customization**: Limit the maximum number of results displayed, and view images in an easy-to-navigate grid format.
 
-<img src="appendix/gui.png" width="500" alt="alt text">
+<img src="appendix/gui.png" width="800" alt="alt text">
 
 ## Installation
 
