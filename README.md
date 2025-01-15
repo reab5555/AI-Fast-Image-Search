@@ -1,4 +1,4 @@
-# Fast Image Searcher
+# AI Fast Image Search
 
 This AI based tool is made for managing and searching large image collections seamlessly with machine learning-based text query capabilities.
 
