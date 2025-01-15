@@ -1,6 +1,6 @@
 # Fast Image Searcher
 
-This tool is made for managing and searching large image collections seamlessly with machine learning-based text query capabilities.
+This AI based tool is made for managing and searching large image collections seamlessly with machine learning-based text query capabilities.
 
 Fast Image Searcher offers an advanced solution for efficiently organizing, querying, and retrieving images from large-scale collections. Leveraging cutting-edge machine learning models, this tool enables precise and swift text-based image searches, revolutionizing the way you manage visual data.
 
