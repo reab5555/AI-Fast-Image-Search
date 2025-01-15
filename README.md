@@ -28,21 +28,21 @@ pip install -r requirements.txt
 
 ## Usage
 
-1. **Create a Database**:
-   - First, you can either upload an existing database file or create a new one by pointing to a directory of images.
+### Create a Database
+- Use `build_db.py` to create the image embeddings database by pointing to your image directory. This will generate `image_embeddings.pkl`, containing all the processed image data.
 
-2. **Search Images**:
-   - Enter your search query in the provided input box. Adjust the similarity threshold and maximum results as needed in the sidebar.
+### Search Images
+- Load `image_embeddings.pkl` using `Image_searcher.py`. Enter your search query in the application’s interface and tweak the similarity threshold and result limits as required.
 
-3. **View Results**: 
-   - The search results will display images that best match your query, along with their similarity scores.
+### View Results
+- Review the search results that display images best matching your query, accompanied by their similarity scores.
 
 ## Getting Started
 
-To run the application locally, execute the following command:
+To run the application locally, launch it with the following command:
 
 ```bash
-streamlit run app.py
+streamlit run Image_searcher.py
 ```
 
-Open your browser and navigate to the provided local URL to access the interface.
+Open your browser and navigate to the provided local URL to access the user interface. Remember, `build_db.py` is used for creating the database, while `Image_searcher.py` is used for loading and searching it.
