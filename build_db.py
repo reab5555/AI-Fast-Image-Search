@@ -1,4 +1,3 @@
-import streamlit as st
 import torch
 from PIL import Image
 from transformers import CLIPProcessor, CLIPModel
@@ -6,132 +5,94 @@ import os
 import numpy as np
 import pickle
 from pathlib import Path
+from tqdm import tqdm
 
 
-class ImageSearcher:
-    def __init__(self):
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.database = None
-        self.model = None
-        self.processor = None
-
-    @st.cache_resource
-    def load_model(_self, model_name):
-        model = CLIPModel.from_pretrained(model_name).to(_self.device)
-        processor = CLIPProcessor.from_pretrained(model_name)
-        return model, processor
-
-    def load_database(self, database_path):
-        with open(database_path, 'rb') as f:
-            self.database = pickle.load(f)
-
-        self.model, self.processor = self.load_model(self.database['model_name'])
-        return len(self.database['image_paths'])
+class ImageEmbeddingCreator:
+    def __init__(self, model_name="openai/clip-vit-large-patch14-336"):
+        print("Initializing CLIP model...")
+        self.device = torch.device("cuda")
+        self.model = CLIPModel.from_pretrained(model_name).to(self.device)
+        self.processor = CLIPProcessor.from_pretrained(model_name)
+        self.model_name = model_name
+        print(f"Model loaded on {self.device}")
 
     @torch.no_grad()
-    def search(self, query, threshold=0.2):
-        text_inputs = self.processor(
-            text=[query],
-            return_tensors="pt",
-            padding=True
-        ).to(self.device)
+    def create_image_embedding(self, image_path):
+        try:
+            image = Image.open(image_path).convert('RGB')
+            inputs = self.processor(images=image, return_tensors="pt").to(self.device)
+            image_features = self.model.get_image_features(**inputs)
+            return image_features.cpu().numpy()
+        except Exception as e:
+            print(f"\nError processing {image_path}: {str(e)}")
+            return None
 
-        text_features = self.model.get_text_features(**text_inputs)
-        text_features = text_features.cpu().numpy()
+    def create_database(self, image_directory, output_path, batch_size=32):
+        # Get all image files
+        print("Scanning for images...")
+        image_extensions = {'.jpg', '.jpeg', '.png', '.webp'}
+        image_paths = [
+            str(p) for p in Path(image_directory).rglob("*")
+            if p.suffix.lower() in image_extensions
+        ]
 
-        text_features = text_features / np.linalg.norm(text_features, axis=1, keepdims=True)
-        embeddings = self.database['embeddings'] / np.linalg.norm(self.database['embeddings'], axis=1, keepdims=True)
+        if not image_paths:
+            print(f"No images found in {image_directory}")
+            return
 
-        similarities = np.dot(embeddings, text_features.T).squeeze()
+        print(f"Found {len(image_paths)} images")
 
-        indices = np.argsort(similarities)[::-1]
-        results = []
+        # Process images and create embeddings
+        embeddings = []
+        valid_paths = []
 
-        for idx in indices:
-            score = similarities[idx]
-            if score < threshold:
-                break
+        # Process in batches
+        for i in tqdm(range(0, len(image_paths), batch_size), desc="Processing batches"):
+            batch_paths = image_paths[i:i + batch_size]
+            batch_embeddings = []
 
-            results.append({
-                'path': self.database['image_paths'][idx],
-                'score': float(score)
-            })
+            for image_path in batch_paths:
+                embedding = self.create_image_embedding(image_path)
+                if embedding is not None:
+                    batch_embeddings.append(embedding.squeeze())
+                    valid_paths.append(image_path)
 
-        return results
+            if batch_embeddings:
+                embeddings.extend(batch_embeddings)
+
+        if not embeddings:
+            print("No valid embeddings created")
+            return
+
+        print("\nCreating database...")
+        database = {
+            'model_name': self.model_name,
+            'embeddings': np.stack(embeddings),
+            'image_paths': valid_paths
+        }
+
+        print(f"Saving database to {output_path}...")
+        with open(output_path, 'wb') as f:
+            pickle.dump(database, f)
+
+        print(f"Database created successfully with {len(valid_paths)} images")
+        print(f"Embedding shape: {database['embeddings'].shape}")
 
 
 def main():
-    st.set_page_config(layout="wide", page_title="Fast Image Searcher")
-    st.title("Fast Image Search")
+    # Configuration
+    image_directory = r"your-path-to-images"  # Replace with your image directory
+    output_path = "image_embeddings.pkl"
 
-    if 'searcher' not in st.session_state:
-        st.session_state.searcher = ImageSearcher()
+    # Check CUDA availability
+    if not torch.cuda.is_available():
+        print("CUDA is not available. This script requires a CUDA-capable GPU.")
+        return
 
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    default_db_path = os.path.join(script_dir, 'image_embeddings.pkl')
-
-    if 'database_loaded' not in st.session_state:
-        st.session_state.database_loaded = False
-
-    if not st.session_state.database_loaded:
-        if os.path.exists(default_db_path):
-            with st.spinner("Loading local database..."):
-                try:
-                    num_images = st.session_state.searcher.load_database(default_db_path)
-                    st.session_state.database_loaded = True
-                    st.success(f"Database loaded with {num_images} images")
-                except Exception as e:
-                    st.error(f"Error loading local database: {str(e)}")
-        else:
-            st.warning("Database file not found!")
-            uploaded_file = st.file_uploader("Upload database file", type=['pkl'])
-            if uploaded_file is not None:
-                with st.spinner("Loading uploaded database..."):
-                    try:
-                        with open(default_db_path, "wb") as f:
-                            f.write(uploaded_file.getvalue())
-                        num_images = st.session_state.searcher.load_database(default_db_path)
-                        st.session_state.database_loaded = True
-                        st.success(f"Database loaded with {num_images} images")
-                    except Exception as e:
-                        st.error(f"Error loading database: {str(e)}")
-
-    if st.session_state.database_loaded:
-        st.sidebar.header("Search Settings")
-        threshold = st.sidebar.slider("Similarity Threshold", 0.0, 1.0, 0.2)
-        max_results = st.sidebar.slider("Maximum Results", 4, 500, 20, step=4)
-
-        query = st.text_input("Enter your search query:")
-        if query:
-            with st.spinner("Searching..."):
-                results = st.session_state.searcher.search(query, threshold)
-                results = results[:max_results]
-
-                if not results:
-                    st.warning("No matching images found.")
-                else:
-                    st.success(f"Found {len(results)} matches")
-
-                    for i in range(0, len(results), 4):
-                        cols = st.columns(4)
-                        batch = results[i:min(i + 4, len(results))]
-
-                        for col, result in zip(cols, batch):
-                            with col:
-                                try:
-                                    img_path = result['path']
-                                    if os.path.exists(img_path):
-                                        img = Image.open(img_path)
-                                        st.image(img, use_container_width=True)
-                                        st.write(f"Score: {result['score']:.3f}")
-                                        width, height = img.size
-                                        st.caption(f"Size: {width}x{height}")
-                                        with st.expander("Path"):
-                                            st.text(img_path)
-                                    else:
-                                        st.error("Image not found")
-                                except Exception as e:
-                                    st.error(f"Error loading image")
+    # Create and save database
+    creator = ImageEmbeddingCreator()
+    creator.create_database(image_directory, output_path)
 
 
 if __name__ == "__main__":
